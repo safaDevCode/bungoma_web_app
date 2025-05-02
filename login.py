@@ -25,7 +25,7 @@ def login_page(authenticate_user):
 
     try:
         with st.container():
-            st.image("images/nice.png", use_container_width=False)
+            st.image("images/nice.png")
     except FileNotFoundError:
         st.error("Image file 'images/nice.png' not found.")
     except Exception as e:
