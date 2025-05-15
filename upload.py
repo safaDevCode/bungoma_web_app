@@ -44,7 +44,7 @@ def fetch_table_names(engine, department, selected_department=None):
 
             mapping_query = text("""
                 SELECT tables_mapped 
-                FROM [Syngenta NICE Project Bungoma].dbo.user_mapping 
+                FROM [SyngentaNICEProjectBungoma].dbo.user_mapping 
                 WHERE category = :dept
             """)
             result = conn.execute(mapping_query, {"dept": target_dept.upper()})
@@ -59,7 +59,7 @@ def fetch_table_names(engine, department, selected_department=None):
 def fetch_departments(engine):
     try:
         with engine.connect() as conn:
-            dept_query = text("SELECT DISTINCT category FROM [Syngenta NICE Project Bungoma].dbo.user_mapping")
+            dept_query = text("SELECT DISTINCT category FROM [SyngentaNICEProjectBungoma].dbo.user_mapping")
             result = conn.execute(dept_query)
             departments = [row[0] for row in result if row[0]]
             return sorted(departments)
@@ -134,7 +134,7 @@ def update_user_mapping(engine, department, new_table):
         category = department.upper()
         with engine.begin() as conn:
             insert_query = text("""
-                INSERT INTO [Syngenta NICE Project Bungoma].dbo.user_mapping (department_id, category, tables_mapped)
+                INSERT INTO [SyngentaNICEProjectBungoma].dbo.user_mapping (department_id, category, tables_mapped)
                 VALUES (:dept_id, :category, :tables)
             """)
             conn.execute(insert_query, {
@@ -169,6 +169,8 @@ def data_page():
     with tabs[0]:
         st.subheader("Preview of the selected table:")
         table_names = fetch_table_names(engine, department)
+        # Filter out 'users' and 'user_mapping' tables
+        table_names = [table for table in table_names if table.lower() not in ["users", "user_mapping"]]
         selected_table = st.selectbox("Select table:", [""] + table_names, key="download_select")
         if selected_table:
             with engine.connect() as conn:
@@ -348,7 +350,88 @@ def data_page():
 
     with tabs[3]:
         st.subheader("Form Uploads")
-        st.info("This section is under development.")
+
+        # Constants
+        topics = ["Food Accessibility", "Overweight"]
+        subcounties = [
+            "Bumula", "Kanduyi", "Sirisia", "Kabuchai", "Kimilili",
+            "Tongaren", "Webuye West", "Webuye East", "Mt. Elgon"
+        ]
+        county = "Bungoma"
+        county_index = 1
+
+        selected_topic = st.selectbox("Select a topic", topics)
+
+        # -------------------- FOOD ACCESSIBILITY FORM --------------------
+        if selected_topic == "Food Accessibility":
+            st.subheader("Food Accessibility Input Form")
+
+            st.text_input("County", value=county, disabled=True)
+            subcounty = st.selectbox("Subcounty", subcounties)
+
+            num_kiosks = st.number_input("Number of kiosks", min_value=0)
+            num_supermarkets = st.number_input("Number of supermarkets", min_value=0)
+            num_markets = st.number_input("Number of markets", min_value=0)
+
+            if st.button("Submit Food Accessibility"):
+                conn = engine.raw_connection()
+                cursor = None
+                try:
+                    cursor = conn.cursor()
+                    insert_query = """
+                        INSERT INTO [SyngentaNICEProjectBungoma].dbo.FD_Bungoma_Food_Accessibility 
+                        ([County], [Subcounties in Busia], [Number of Kiosks], 
+                         [Number of Supermarkets], [Number of Markets], [County Index])
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """
+                    values = (county, subcounty, num_kiosks, num_supermarkets, num_markets, county_index)
+                    cursor.execute(insert_query, values)
+                    conn.commit()
+                    st.success("✅ Food Accessibility data inserted successfully!")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Insert failed: {e}")
+                finally:
+                    if cursor:
+                        cursor.close()
+                    conn.close()
+
+        # -------------------- OVERWEIGHT FORM --------------------
+        elif selected_topic == "Overweight":
+            st.subheader("Overweight Input Form")
+
+            gender_options = {
+                "Male": 101,
+                "Female": 102
+            }
+
+            gender = st.selectbox("Gender", list(gender_options.keys()))
+            gender_id = gender_options[gender]
+
+            baseline = st.number_input("Baseline (%)", min_value=0.0, format="%.2f")
+            year = st.number_input("Year", min_value=1900, max_value=2100, value=2022)
+
+            if st.button("Submit Overweight"):
+                conn = engine.raw_connection()
+                cursor = None
+                try:
+                    cursor = conn.cursor()
+                    insert_query = """
+                        INSERT INTO [SyngentaNICEProjectBungoma].dbo.Overweight
+                        ([GenderID], [baseline], [county_index], [Year])
+                        VALUES (?, ?, ?, ?)
+                    """
+                    values = (gender_id, baseline, county_index, year)
+                    cursor.execute(insert_query, values)
+                    conn.commit()
+                    st.success("✅ Overweight data inserted successfully!")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Insert failed: {e}")
+                finally:
+                    if cursor:
+                        cursor.close()
+                    conn.close()
 
 if __name__ == "__main__":
     data_page()
