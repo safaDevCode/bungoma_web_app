@@ -352,7 +352,7 @@ def data_page():
         st.subheader("Form Uploads")
 
         # Constants
-        topics = ["Food Accessibility", "Overweight"]
+        topics = ["Food Accessibility", "Overweight", "Stakeholder Food Systems"]
         subcounties = [
             "Bumula", "Kanduyi", "Sirisia", "Kabuchai", "Kimilili",
             "Tongaren", "Webuye West", "Webuye East", "Mt. Elgon"
@@ -425,6 +425,45 @@ def data_page():
                     cursor.execute(insert_query, values)
                     conn.commit()
                     st.success("✅ Overweight data inserted successfully!")
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Insert failed: {e}")
+                finally:
+                    if cursor:
+                        cursor.close()
+                    conn.close()
+
+        # -------------------- STAKEHOLDER FOOD SYSTEMS FORM --------------------
+        elif selected_topic == "Stakeholder Food Systems":
+            st.subheader("Stakeholder Food Systems Input Form")
+
+            domain = "Food policies"
+            indicator = "Multisectoral platform for food systems - number"
+
+            st.text_input("Domain", value=domain, disabled=True)
+            st.text_input("Indicator", value=indicator, disabled=True)
+            st.text_input("County", value=county, disabled=True)
+            st.text_input("County Index", value=str(county_index), disabled=True)
+
+            groups = ["Women", "Youth", "Civil Society"]
+            selected_group = st.selectbox("Group", groups)
+
+            baseline = st.number_input("Baseline", min_value=0.0, format="%.2f", help="Enter the baseline value as a decimal (e.g., 0.34 for 34%)")
+
+            if st.button("Submit Stakeholder Food Systems"):
+                conn = engine.raw_connection()
+                cursor = None
+                try:
+                    cursor = conn.cursor()
+                    insert_query = """
+                        INSERT INTO [SyngentaNICEProjectBungoma].dbo.[bungoma stakeholders food systems]
+                        ([Domain], [indicator], [County], [county index], [Groups], [Baseline])
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """
+                    values = (domain, indicator, county, county_index, selected_group, baseline)
+                    cursor.execute(insert_query, values)
+                    conn.commit()
+                    st.success("✅ Stakeholder Food Systems data inserted successfully!")
                 except Exception as e:
                     conn.rollback()
                     st.error(f"❌ Insert failed: {e}")
